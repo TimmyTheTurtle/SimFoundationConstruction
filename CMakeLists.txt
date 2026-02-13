@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_executable(CMake1
     app/main.cpp
+    platform/Win32Window.cpp
 )
 
 target_include_directories(CMake1 PRIVATE ${CMAKE_SOURCE_DIR})

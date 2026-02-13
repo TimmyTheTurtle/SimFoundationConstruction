@@ -1,12 +1,16 @@
-﻿// CMake1.cpp : Defines the entry point for the application.
-//
-
-#include "CMake1.h"
-
-using namespace std;
+﻿#include "platform/Win32Window.h"
+#include <windows.h>
 
 int main()
 {
-	cout << "Hello CMake." << endl;
-	return 0;
+    HINSTANCE hInstance = GetModuleHandleW(nullptr);
+
+    Win32Window window(hInstance, 800, 600, L"Hello, Windows");
+
+    while (window.PumpMessages())
+    {
+        // idle / later: render loop
+        Sleep(16);
+    }
+    return 0;
 }
