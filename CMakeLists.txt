@@ -14,3 +14,5 @@ target_include_directories(CMake1 PRIVATE ${CMAKE_SOURCE_DIR})
 if (MSVC)
   target_compile_options(CMake1 PRIVATE /W4 /permissive-)
 endif()
+
+target_link_libraries(CMake1 PRIVATE d3d11 dxgi d3dcompiler)
