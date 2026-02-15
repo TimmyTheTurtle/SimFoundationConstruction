@@ -1,6 +1,7 @@
 #pragma once
 #include <windows.h>
 #include <string>
+#include <functional>
 
 class Win32Window
 {
@@ -14,9 +15,12 @@ public:
     HWND hwnd() const { return m_hwnd; }
     bool PumpMessages(); // returns false when quit requested
 
+    void SetOnResize(std::function<void(int, int)> cb) { m_onResize = std::move(cb); }
 private:
     static LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 
     HINSTANCE m_hInstance{};
     HWND      m_hwnd{};
+
+    std::function<void(int, int)> m_onResize;
 };

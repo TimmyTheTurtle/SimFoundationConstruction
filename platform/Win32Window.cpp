@@ -28,7 +28,7 @@ Win32Window::Win32Window(HINSTANCE hInstance, int width, int height, const wchar
         r.bottom - r.top,
         nullptr, nullptr,
         m_hInstance,
-        nullptr);
+        this);
 
     ShowWindow(m_hwnd, SW_SHOW);
 }
@@ -54,11 +54,38 @@ bool Win32Window::PumpMessages()
 
 LRESULT CALLBACK Win32Window::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
+    Win32Window* self = nullptr;
+
+    if (msg == WM_NCCREATE)
+    {
+        auto cs = reinterpret_cast<CREATESTRUCTW*>(lparam);
+        self = reinterpret_cast<Win32Window*>(cs->lpCreateParams);
+        SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(self));
+    }
+    else
+    {
+        self = reinterpret_cast<Win32Window*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
+    }
+
     switch (msg)
     {
+    case WM_SIZE:
+        if (self && wparam != SIZE_MINIMIZED)
+        {
+            int width = LOWORD(lparam);
+            int height = HIWORD(lparam);
+
+            if (self->m_onResize) {
+                self->m_onResize(width, height);
+            }
+        }
+        return 0;
+
     case WM_DESTROY:
         PostQuitMessage(0);
         return 0;
     }
+
     return DefWindowProcW(hwnd, msg, wparam, lparam);
 }
+
