@@ -1,5 +1,8 @@
-###RAII for a DirectX 11 Physics Simulator
-Executive summary
+
+### RAII for a DirectX 11 Physics Simulator
+
+**Executive summary**
+
 Resource Acquisition Is Initialization (RAII) is the C++ technique of binding resource lifetime (GPU objects, OS handles, threads, locks, timers) to object lifetime so that construction acquires and destruction releases—automatically, deterministically, and correctly across early returns and exceptions. RAII also implies reverse-order release (resources are released in reverse order of acquisition/initialization), and if a constructor throws, already-constructed members are cleaned up automatically. [1]
 In a Win32 + CMake DirectX 11 physics simulator, RAII is practical engineering: it reduces leaks, prevents shutdown races between physics, worker threads, and the GPU command stream, and makes multi-stage initialization safe when any HRESULT step can fail. The Direct3D 11 runtime also defers destruction, so “releasing” a COM pointer is necessary but sometimes not sufficient to reclaim resources immediately; you often need a deliberate “GPU flush + wait” only at specific boundaries (e.g., shutdown) to avoid use-after-free patterns. [2]
 Unspecified items: you did not specify (1) C++ standard, (2) whether you allow exceptions, or (3) toolchain. The examples assume C++20 (for std::jthread) and work with MSVC or clang-cl on Windows when linked against D3D11/DXGI libraries. [3]
@@ -21,15 +24,20 @@ Patterns you’ll actually use
 Wrapper choice and locking patterns
 Need in your simulator	Typical RAII tool	When it’s best	Key caveat
 COM (D3D11 device/context/swap chain/resources)	WRL::ComPtr<T>	Default choice for DirectX COM ownership; auto Release. [17]
-Avoid reference cycles (ref-counting won’t collect cycles). [18]
+Avoid reference cycles (ref-counting won’t collect cycles). [18]
+
 Win32 HANDLE (events/files/etc.)	Move-only Handle class (calls CloseHandle)	Encodes the correct closer and prevents leaks/double-close. [13]
-Don’t mix raw-handle ownership with RAII ownership. [13]
+Don’t mix raw-handle ownership with RAII ownership. [13]
+
 Legacy C API resource	std::unique_ptr<T, Deleter>	Great when a destroy function exists (free, custom destroy). [19]
-Deleter type affects size; keep it simple. [20]
+Deleter type affects size; keep it simple. [20]
+
 
 Locking approach	Safety under exceptions	Recommendation
-std::scoped_lock(m1, m2, …)	Strong; RAII unlocks on scope exit	Prefer for multi-lock and general engine code. [21]
-Manual lock() / unlock()	Fragile	Avoid except in narrow, proven cases. [22]
+std::scoped_lock(m1, m2, …)	Strong; RAII unlocks on scope exit	Prefer for multi-lock and general engine code. [21]
+
+Manual lock() / unlock()	Fragile	Avoid except in narrow, proven cases. [22]
+
 Exception-safety and error-safety in initialization/teardown
 RAII works whether you use exceptions or error codes, but it’s most powerful when constructors/factories either succeed fully or fail fast (throw or return an error) while preserving invariants. RAII’s core language property—“already-constructed subobjects are destroyed in reverse order if initialization fails”—is the mechanism that prevents leaks in partial initialization. [23]
 Two concrete DirectX practices that interact with RAII:
@@ -230,3 +238,4 @@ https://learn.microsoft.com/en-us/windows/win32/direct3d11/using-the-debug-layer
 https://github.com/MicrosoftDocs/cpp-docs/blob/main/docs/c-runtime-library/find-memory-leaks-using-the-crt-library.md?utm_source=chatgpt.com
 [32] fsanitize (Enable sanitizers)
 https://learn.microsoft.com/en-us/cpp/build/reference/fsanitize?view=msvc-170&utm_source=chatgpt.com
+
