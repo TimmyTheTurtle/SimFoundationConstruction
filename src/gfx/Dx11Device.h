@@ -7,7 +7,7 @@ class Dx11Device
 {
 public:
     Dx11Device(HWND hwnd, int width, int height);
-
+    ~Dx11Device();
     Dx11Device(const Dx11Device&) = delete;
     Dx11Device& operator=(const Dx11Device&) = delete;
 

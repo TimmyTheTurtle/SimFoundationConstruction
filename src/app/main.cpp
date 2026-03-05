@@ -1,6 +1,7 @@
 ﻿#include "platform/Win32Window.h"
 #include "gfx/Dx11Device.h"
 #include <windows.h>
+#include "core/ScopedQpcTimer.h"
 
 int main()
 {
@@ -13,6 +14,7 @@ int main()
 
 	window.SetOnResize([&](int newW, int newH)
 		{
+			ScopedQpcTimer t("resize_ms");
 			dx.Resize(newW, newH);
 			dx.Clear(0.1f, 0.2f, 0.4f, 1.0f);
 			dx.Present(true);
@@ -20,9 +22,15 @@ int main()
 
 	while (window.PumpMessages())
 	{
-		dx.Clear(0.1f, 0.2f, 0.4f, 1.0f);
-		dx.Present(true);
-		//Sleep(1);
+		{
+			ScopedQpcTimer t("physics_ms");
+			// TODO: physics step
+		}
+		{
+			ScopedQpcTimer t("render_ms");
+			dx.Clear(0.1f, 0.2f, 0.4f, 1.0f);
+			dx.Present(true);
+		}
 	}
 	return 0;
 }

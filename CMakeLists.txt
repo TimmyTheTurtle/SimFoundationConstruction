@@ -10,15 +10,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_executable(${APP_NAME}
     src/app/main.cpp
     src/platform/Win32Window.cpp
-    src/gfx/Dx11Device.cpp
-)
+    src/gfx/Dx11Device.cpp)
 
 target_include_directories(${APP_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
 # core simulation library ("sim")
 add_library(sim STATIC
     src/sim/Sim.cpp
-)
+ "src/core/ScopedQpcTimer.cpp")
 target_include_directories(sim PUBLIC ${CMAKE_SOURCE_DIR}/src)
 target_compile_features(sim PUBLIC cxx_std_20)
 
@@ -49,8 +48,7 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 add_executable(${APP_NAME}Tests
-    tests/test_smoke.cpp
-)
+    tests/test_smoke.cpp)
 target_include_directories(${APP_NAME}Tests PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries(${APP_NAME}Tests PRIVATE GTest::gtest_main sim)
 

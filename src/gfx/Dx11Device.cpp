@@ -1,10 +1,11 @@
 #include "gfx/Dx11Device.h"
+#include <d3d11sdklayers.h>
 #include <stdexcept>
 
 static void ThrowIfFailed(HRESULT hr, const char* msg)
 {
     if (FAILED(hr)) throw std::runtime_error(msg);
-}
+}   
 
 Dx11Device::Dx11Device(HWND hwnd, int width, int height)
     : m_hwnd(hwnd), m_width(width), m_height(height)
@@ -39,14 +40,31 @@ Dx11Device::Dx11Device(HWND hwnd, int width, int height)
         fls, (UINT)std::size(fls),
         D3D11_SDK_VERSION,
         &scd,
-        &m_swapChain,
-        &m_device,
+        m_swapChain.ReleaseAndGetAddressOf(),
+        m_device.ReleaseAndGetAddressOf(),
         &flOut,
-        &m_context);
+        m_context.ReleaseAndGetAddressOf());
 
     ThrowIfFailed(hr, "D3D11CreateDeviceAndSwapChain failed");
 
     CreateBackBufferRTV();
+}
+Dx11Device::~Dx11Device()
+{
+    if (m_context)
+        m_context->ClearState();
+
+    m_rtv.Reset();
+    m_swapChain.Reset();
+    m_context.Reset();
+
+#if defined(_DEBUG)
+    Microsoft::WRL::ComPtr<ID3D11Debug> debug;
+    m_device.As(&debug);
+    m_device.Reset();
+    if (debug)
+        debug->ReportLiveDeviceObjects(D3D11_RLDO_SUMMARY | D3D11_RLDO_DETAIL | D3D11_RLDO_IGNORE_INTERNAL);
+#endif
 }
 
 void Dx11Device::CreateBackBufferRTV()
