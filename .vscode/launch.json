@@ -1,0 +1,18 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug SimFoundation (x64-debug)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/out/build/x64-debug/SimFoundation.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "symbolSearchPath": "${workspaceFolder}\\out\\build\\x64-debug",
+            "console": "internalConsole",
+            "preLaunchTask": "CMake: build x64-debug"
+        }
+    ]
+}
