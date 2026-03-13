@@ -23,6 +23,9 @@ Validate: enable debug layer + ID3D11Debug::ReportLiveDeviceObjects. [11]
     Testability changes: To make the graphics code testable, `Dx11Device` gained `Dx11DeviceOptions` in `src/gfx/Dx11Device.h` so tests can request a WARP software device instead of relying on a specific hardware adapter or debug-layer availability. The build was also split so `src/gfx/Dx11Device.cpp` is compiled into the reusable `app_support` library in `CMakeLists.txt`, which lets the integration test target link the same production code as the application.
  
 2. [ ] Wrap Win32 HANDLE ownership (UniqueHandle)
+
+Status: The `UniqueHandle` type itself is implemented and unit tested. This exercise remains open because the production-code conversion step has not been completed yet.
+
 Goal: I want to never leak or double-close kernel handles. [5]
 Tasks: Implement move-only UniqueHandle calling CloseHandle in destructor; convert any raw CreateEvent/CreateFile handles to it. [5]
 Success: Handle count stable; no “invalid handle” crashes on shutdown.
@@ -37,11 +40,20 @@ struct UniqueHandle{ HANDLE h=nullptr; ~UniqueHandle(){ if(h) CloseHandle(h); }
 ```
 Validate: run under CRT leak checks for non-D3D leaks (Debug build). [12]
 
-Implementation notes: The wrapper itself is implemented in `src/core/UniqueHandle.h`. It is move-only, calls `CloseHandle` through `reset()`, supports `release()` and `swap()`, and treats both `nullptr` and `INVALID_HANDLE_VALUE` as non-owning sentinel states. This gives the project the RAII type needed for Win32 handle ownership.
+Implementation summary:
 
-Tests: `tests/test_unique_handle.cpp` covers the wrapper thoroughly: default construction, `INVALID_HANDLE_VALUE`, destruction closing the owned handle, move construction, move assignment, `reset()`, `release()`, and a repeated-scope process-handle-count check to catch leaks.
+- `src/core/UniqueHandle.h` now contains a move-only RAII wrapper for Win32 `HANDLE`s.
+- The wrapper closes owned handles through `reset()`, supports `release()` and `swap()`, and treats both `nullptr` and `INVALID_HANDLE_VALUE` as non-owning sentinel states.
+- This completes the reusable ownership type that the rest of the project can adopt.
 
-Testability changes: This exercise needed very little indirection because Win32 event handles are cheap to create in a test. The main design tweak made for correctness and testability was adding `UniqueHandle::IsValid()` so both common invalid-handle sentinels are treated consistently by production code and assertions. This exercise is still left unchecked because the wrapper exists and is tested, but the second half of the task, converting real production `CreateEvent` / `CreateFile` ownership sites to use it, has not been completed yet.
+Tests:
+
+- `tests/test_unique_handle.cpp` covers default construction, `INVALID_HANDLE_VALUE`, destruction closing the owned handle, move construction, move assignment, `reset()`, `release()`, and a repeated-scope process-handle-count check to catch leaks.
+
+Remaining work before this exercise is fully complete:
+
+- Convert real production `CreateEvent` / `CreateFile` ownership sites to use `UniqueHandle`.
+- Re-check the task only after the wrapper is actually used at those call sites.
  
 3. [x] Build a scoped QPC timer for profiling spans
 Goal: I want time spans to always end (even on early return). [13]
@@ -65,10 +77,18 @@ Tests: `tests/test_scoped_qpc_timer.cpp` verifies the three key promises of the 
 Testability changes: The original timer directly called `QueryPerformanceFrequency`, `QueryPerformanceCounter`, and `OutputDebugStringA`, which made deterministic unit tests difficult. To solve that, `ScopedQpcTimer` gained test hooks under `scoped_qpc_timer::testing` with `SetHooks()` and `Reset()`. Tests install fake QPC/debug-output functions so they can script counter values and capture log messages without relying on wall-clock timing or an attached debugger. The timer implementation also resets its cached frequency whenever hooks change so tests remain isolated from one another.
  
 4. [ ] RAII Map/Unmap guard (MappedSubresource)
+
+Status: The `MappedSubresource` type and its unit-test coverage are complete. This exercise remains open because the task also requires using it in a real dynamic constant-buffer update path.
+
 Goal: I want Unmap to be guaranteed, preventing “forgot to unmap” bugs. [15]
 Tasks: Create a move-only MappedSubresource that calls Map in ctor and Unmap in dtor; use it for dynamic constant buffers. [15]
 Success: No code path leaves without unmapping; debug layer stays quiet. [16]
 Checklist: (a) ctor checks HRESULT, (b) dtor noexcept, (c) non-copyable.
+
+### IMPORTANT. This is what you used to call a "surface"
+
+[https://learn.microsoft.com/en-us/windows/win32/direct3d12/subresources]
+
 Hint:
 ```
 struct MapGuard{ ID3D11DeviceContext* c; ID3D11Resource* r; D3D11_MAPPED_SUBRESOURCE m{};
@@ -77,6 +97,66 @@ struct MapGuard{ ID3D11DeviceContext* c; ID3D11Resource* r; D3D11_MAPPED_SUBRESO
 };
 ```
 Validate: add an intentional early-return inside the update function and confirm state remains correct.
+
+Implementation summary:
+
+- `src/gfx/MappedSubresource.h` now contains a move-only RAII wrapper that calls `Map` in the constructor and `Unmap` in the destructor.
+- Constructor failure is converted into an exception via `ThrowIfFailed`, and the destructor is `noexcept`.
+- The implementation was intentionally designed to be unit-testable without creating a real D3D11 device/context.
+- The current design uses a small `IMapBackend` interface plus a `D3D11MapBackend` adapter so tests can use a fake backend while production code still uses the real `ID3D11DeviceContext`.
+- `src/gfx/MappedSubresourceGuard.h` still exists as the earlier simpler guard, but `MappedSubresource` is the more complete Exercise 4 implementation.
+
+Tests:
+
+- `tests/test_mapped_subresource.cpp` now contains the full TDD sequence as real passing tests.
+- The suite verifies move-only traits, successful `Map`, exposed mapped memory, destructor cleanup, failed `Map` behavior, move construction, move assignment, early-return cleanup, and moved-from inertness.
+- These are true unit tests: they use a fake backend instead of real Direct3D device initialization.
+
+Remaining work before this exercise is fully complete:
+
+- Use `MappedSubresource` in a real dynamic constant-buffer or similar update path.
+- Validate the real rendering/update path behavior, including the intended early-return safety.
+- Optionally remove or replace `src/gfx/MappedSubresourceGuard.h` once the newer type is fully adopted.
+
+Suggested TDD sequence for implementing the SUT:
+
+1. `MappedSubresourceTypeIsMoveOnly`
+   Start with compile-time tests: non-copyable, move-constructible, move-assignable, and nothrow-destructible. This locks in the ownership model before any D3D behavior exists.
+
+2. `ConstructingGuardCallsMapWithExpectedArguments`
+   Use a fake mapping backend and assert that construction calls `Map()` exactly once with the expected `resource`, `subresource`, `D3D11_MAP_WRITE_DISCARD`, and flags. This drives the public constructor shape.
+
+3. `SuccessfulMapExposesMappedMemoryView`
+   Have the fake backend return a known `D3D11_MAPPED_SUBRESOURCE` and assert that the guard stores or exposes the mapped pointer, row pitch, and depth pitch correctly. This drives the data access API.
+
+4. `DestructorCallsUnmapAfterSuccessfulMap`
+   Create the guard in a nested scope and assert that `Unmap()` is called exactly once on scope exit. This is the first full RAII behavior test.
+
+5. `FailedMapThrowsAndDoesNotCallUnmap`
+   Make the fake backend return a failing `HRESULT` from `Map()`. The constructor should throw, and `Unmap()` must not be called because no mapping was ever successfully acquired.
+
+6. `MoveConstructorTransfersUnmapResponsibility`
+   Construct one guard, move it into another, then let both destruct. Only the moved-to object should perform the final `Unmap()`. This proves ownership transfer rather than ownership duplication.
+
+7. `MoveAssignmentUnmapsOldMappingThenTakesNewOne`
+   Give the destination an existing successful mapping, then move-assign a second mapping into it. The old mapping should be unmapped exactly once, and the new mapping should still be cleaned up on final destruction.
+
+8. `EarlyReturnStillUnmaps`
+   Write a helper function that creates the guard and returns early before the end of the function body. After the function returns, assert that `Unmap()` happened. This is the behavior the exercise is trying to guarantee in real update code.
+
+9. `NullOrReleasedGuardDoesNotUnmap`
+   After a move, the moved-from guard should be inert. This prevents double-unmap bugs and usually drives an internal "owns mapping" or null-resource state.
+
+Recommended testability seam:
+
+Because `ID3D11DeviceContext::Map()` and `Unmap()` are COM methods on a large interface, unit tests will be much easier if the first implementation introduces a tiny seam around those two calls. The cleanest version is usually an internal adapter or small function table used only by `MappedSubresource`, while the public constructor still accepts the real `ID3D11DeviceContext*` and `ID3D11Resource*`. That lets tests use a fake backend for precise call recording without needing a full COM mock of the entire D3D11 device context.
+
+Suggested file split once you start coding:
+
+- `src/gfx/MappedSubresource.h` for the guard type
+- `src/gfx/MappedSubresource.cpp` for constructor/destructor logic
+- `tests/test_mapped_subresource.cpp` for the unit-level TDD sequence above
+- later, one integration test in a real D3D path once the dynamic-buffer exercise starts depending on it
  
 5. [ ] Dynamic upload buffer wrapper (D3D11_USAGE_DYNAMIC)
 Goal: I want a safe “upload buffer” class for per-frame instance transforms of rigid bodies.

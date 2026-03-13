@@ -2,6 +2,7 @@
     "cmake.useCMakePresets": "always",
     "cmake.configureOnOpen": true,
     "cmake.configurePreset": "x64-debug",
+    "cmake.buildBeforeRun": false,
     "cmake.ctest.testExplorerIntegrationEnabled": true,
     "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
     "C_Cpp.default.compileCommands": "${workspaceFolder}/out/build/x64-debug/compile_commands.json"

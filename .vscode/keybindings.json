@@ -1,0 +1,13 @@
+[
+  {
+    "key": "ctrl+alt+r",
+    "command": "testing.runAll"
+  },
+  {
+    "key": "ctrl+alt+d",
+    "command": "debug.startFromConfig",
+    "args": {
+      "name": "Debug SimFoundation Unit Tests (x64-debug)"
+    }
+  }
+]

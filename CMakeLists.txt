@@ -77,6 +77,7 @@ endfunction()
 add_executable(${APP_NAME}UnitTests
     tests/test_smoke.cpp
     tests/test_comptr_checklist.cpp
+    tests/test_mapped_subresource.cpp
     tests/test_scoped_qpc_timer.cpp
     tests/test_unique_handle.cpp)
 target_link_libraries(${APP_NAME}UnitTests PRIVATE GTest::gtest_main sim)

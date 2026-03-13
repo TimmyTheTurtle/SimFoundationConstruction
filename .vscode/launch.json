@@ -1,6 +1,45 @@
 {
     "version": "0.2.0",
+    "inputs": [
+        {
+            "id": "gtestFilter",
+            "type": "promptString",
+            "description": "GoogleTest filter to debug",
+            "default": "*"
+        }
+    ],
     "configurations": [
+        {
+            "name": "Debug SimFoundation Unit Tests (x64-debug)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "purpose": [
+                "debug-test"
+            ],
+            "program": "${cmake.testProgram}",
+            "args": [
+                "${cmake.testArgs}"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "symbolSearchPath": "${workspaceFolder}\\out\\build\\x64-debug",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Debug SimFoundation Unit Test (Prompt Filter)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/out/build/x64-debug/SimFoundationUnitTests.exe",
+            "args": [
+                "--gtest_filter=${input:gtestFilter}"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "symbolSearchPath": "${workspaceFolder}\\out\\build\\x64-debug",
+            "console": "internalConsole"
+        },
         {
             "name": "Debug SimFoundation (x64-debug)",
             "type": "cppvsdbg",

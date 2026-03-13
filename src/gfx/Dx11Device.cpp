@@ -1,14 +1,8 @@
 #include "gfx/Dx11Device.h"
+#include "gfx/DxError.h"
+
 #include <d3d11sdklayers.h>
 #include <iterator>
-#include <stdexcept>
-
-static void ThrowIfFailed(HRESULT hr, const char* msg)
-{
-    // D3D APIs report failures through HRESULT rather than exceptions, so this
-    // helper converts "failed HRESULT" into normal C++ control flow.
-    if (FAILED(hr)) throw std::runtime_error(msg);
-}
 
 Dx11Device::Dx11Device(HWND hwnd, int width, int height, const Dx11DeviceOptions& options)
     : m_hwnd(hwnd), m_width(width), m_height(height)
